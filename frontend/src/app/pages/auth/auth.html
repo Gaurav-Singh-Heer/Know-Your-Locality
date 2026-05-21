@@ -1,0 +1,118 @@
+<div class="bg-mesh min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+  <div class="absolute top-1/4 left-1/4 w-80 h-80 bg-violet-600/10 rounded-full blur-3xl pointer-events-none animate-float"></div>
+  <div class="absolute bottom-1/4 right-1/4 w-64 h-64 bg-cyan-500/8 rounded-full blur-3xl pointer-events-none animate-float" style="animation-delay:-3s"></div>
+
+  <a href="/" class="absolute top-6 left-6 flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm">
+    <span>←</span> <span class="gradient-text font-semibold">📍 KYL</span>
+  </a>
+
+  <div class="glass rounded-3xl p-8 w-full max-w-md border border-white/8 shadow-2xl shadow-violet-500/5 animate-fade-in-up">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-3">📍</div>
+      <h1 class="text-2xl font-bold text-white mb-1">
+        {{ mode() === 'signup' ? 'Create your KYL account' : 'Welcome back to KYL' }}
+      </h1>
+      <p class="text-slate-400 text-sm">Find people nearby who share your vibe.</p>
+    </div>
+
+    <div class="flex bg-white/5 rounded-full p-1 mb-6 border border-white/8">
+      <button
+        type="button"
+        (click)="setMode('signin')"
+        [ngClass]="mode() === 'signin' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+        class="flex-1 py-2 rounded-full text-sm font-medium transition-colors">
+        Sign in
+      </button>
+      <button
+        type="button"
+        (click)="setMode('signup')"
+        [ngClass]="mode() === 'signup' ? 'bg-violet-600 text-white shadow' : 'text-slate-400 hover:text-white'"
+        class="flex-1 py-2 rounded-full text-sm font-medium transition-colors">
+        Sign up
+      </button>
+    </div>
+
+    <form (ngSubmit)="onSubmit()" class="flex flex-col gap-3" novalidate>
+      @if (mode() === 'signup') {
+        <label class="block">
+          <span class="text-xs text-slate-400 mb-1 block">Name</span>
+          <input
+            type="text"
+            name="name"
+            autocomplete="name"
+            [ngModel]="name()"
+            (ngModelChange)="name.set($event)"
+            class="w-full bg-white/5 border border-white/10 focus:border-violet-500 focus:bg-white/8 outline-none rounded-xl px-4 py-3 text-white text-sm placeholder-slate-500 transition-colors"
+            placeholder="Your full name" />
+        </label>
+      }
+
+      <label class="block">
+        <span class="text-xs text-slate-400 mb-1 block">Email</span>
+        <input
+          type="email"
+          name="email"
+          autocomplete="email"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event)"
+          class="w-full bg-white/5 border border-white/10 focus:border-violet-500 focus:bg-white/8 outline-none rounded-xl px-4 py-3 text-white text-sm placeholder-slate-500 transition-colors"
+          placeholder="you@example.com" />
+      </label>
+
+      <label class="block">
+        <span class="text-xs text-slate-400 mb-1 block">Password</span>
+        <input
+          type="password"
+          name="password"
+          [attr.autocomplete]="mode() === 'signup' ? 'new-password' : 'current-password'"
+          [ngModel]="password()"
+          (ngModelChange)="password.set($event)"
+          class="w-full bg-white/5 border border-white/10 focus:border-violet-500 focus:bg-white/8 outline-none rounded-xl px-4 py-3 text-white text-sm placeholder-slate-500 transition-colors"
+          [placeholder]="mode() === 'signup' ? 'At least 8 characters' : 'Your password'" />
+      </label>
+
+      <button
+        type="submit"
+        [disabled]="loading()"
+        class="mt-2 w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold rounded-full py-3 text-sm transition-colors">
+        @if (loading()) {
+          <span class="inline-flex items-center gap-2">
+            <span class="inline-block w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+            <span>Please wait…</span>
+          </span>
+        } @else {
+          <span>{{ mode() === 'signup' ? 'Create account' : 'Sign in' }}</span>
+        }
+      </button>
+    </form>
+
+    <div class="flex items-center gap-3 my-5">
+      <div class="flex-1 h-px bg-white/10"></div>
+      <span class="text-xs text-slate-500 uppercase tracking-wider">or</span>
+      <div class="flex-1 h-px bg-white/10"></div>
+    </div>
+
+    <div class="flex flex-col items-center gap-3">
+      <div #googleBtn class="flex justify-center min-h-[44px]"></div>
+
+      @if (!configured()) {
+        <div class="text-amber-300 text-xs bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 leading-relaxed">
+          Google sign-in is not configured yet. Set <code>googleClientId</code> in
+          <code>environments/environment.ts</code> and add the same client ID to the backend
+          <code>.env</code>.
+        </div>
+      }
+
+      @if (error()) {
+        <div class="flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 w-full">
+          <span>⚠️</span> <span>{{ error() }}</span>
+        </div>
+      }
+    </div>
+
+    <p class="text-center text-xs text-slate-500 mt-6 leading-relaxed">
+      By continuing, you agree to share your basic profile info.<br>
+      We never post on your behalf.
+    </p>
+  </div>
+</div>

@@ -1,0 +1,156 @@
+<div class="bg-mesh min-h-screen flex items-center justify-center p-4">
+  <div class="absolute top-6 left-6">
+    <div class="flex items-center gap-2">
+      <span class="text-xl">📍</span>
+      <span class="gradient-text font-bold">KnowYourLocality</span>
+    </div>
+  </div>
+
+  <div class="w-full max-w-xl animate-fade-in-up">
+    <div class="flex items-center justify-center gap-3 mb-8">
+      @for (s of [1,2,3]; track s) {
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300"
+            [class]="s <= step() ? 'bg-gradient-to-br from-violet-600 to-cyan-500 text-white' : 'bg-white/8 text-slate-500'">
+            @if (s < step()) { ✓ } @else { {{ s }} }
+          </div>
+          @if (s < 3) {
+            <div class="w-12 h-0.5 transition-all duration-500"
+              [class]="s < step() ? 'bg-gradient-to-r from-violet-500 to-cyan-500' : 'bg-white/10'"></div>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="glass rounded-3xl p-8 border border-white/8 shadow-2xl shadow-violet-500/5">
+
+      <!-- Step 1: Basic Info -->
+      @if (step() === 1) {
+        <div>
+          <div class="text-center mb-8">
+            <div class="text-4xl mb-3">👤</div>
+            <h2 class="text-2xl font-bold text-white mb-1">Tell us about yourself</h2>
+            <p class="text-slate-400 text-sm">A few details help us match you with the right people.</p>
+          </div>
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 font-medium">Age</label>
+              <input type="number" [(ngModel)]="age" class="input-field" placeholder="22">
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 font-medium">Your Location</label>
+              <div class="flex gap-2">
+                <input type="text" [(ngModel)]="location" class="input-field flex-1" placeholder="Tap '📍 Use mine' to auto-detect">
+                <button type="button" (click)="useMyLocation()"
+                  class="btn-ghost px-3 rounded-xl text-sm whitespace-nowrap">📍 Use mine</button>
+              </div>
+              @if (geo.status() === 'requesting') {
+                <p class="text-xs text-slate-500 mt-1">Detecting your location…</p>
+              } @else if (geo.status() === 'granted') {
+                <p class="text-xs text-emerald-400 mt-1">Location detected ✓</p>
+              } @else if (geo.status() === 'denied') {
+                <p class="text-xs text-amber-400 mt-1">Location permission denied. You can type it instead.</p>
+              } @else if (geo.status() === 'unavailable' && geo.error()) {
+                <p class="text-xs text-amber-400 mt-1">{{ geo.error() }}</p>
+              }
+            </div>
+            <div>
+              <label class="block text-xs text-slate-400 mb-1.5 font-medium">Short Bio <span class="text-slate-600">(optional)</span></label>
+              <textarea [(ngModel)]="bio" class="input-field resize-none" rows="3" placeholder="Tell others what you love doing…"></textarea>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Step 2: Interests -->
+      @if (step() === 2) {
+        <div>
+          <div class="text-center mb-8">
+            <div class="text-4xl mb-3">🎯</div>
+            <h2 class="text-2xl font-bold text-white mb-1">What do you love?</h2>
+            <p class="text-slate-400 text-sm">Pick a few interests — we'll find people who share them.</p>
+          </div>
+          <div class="flex flex-wrap gap-2.5">
+            @for (interest of interests; track interest.id) {
+              <button (click)="toggleInterest(interest.id)"
+                class="px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 border"
+                [class]="isSelected(interest.id)
+                  ? 'bg-violet-600/30 border-violet-500/60 text-violet-300'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/8 hover:border-white/20'">
+                {{ interest.label }}
+              </button>
+            }
+          </div>
+          <p class="text-xs text-slate-500 mt-4">{{ selected.size }} selected</p>
+        </div>
+      }
+
+      <!-- Step 3: Travel Preferences -->
+      @if (step() === 3) {
+        <div>
+          <div class="text-center mb-8">
+            <div class="text-4xl mb-3">🗺️</div>
+            <h2 class="text-2xl font-bold text-white mb-1">How do you get around?</h2>
+            <p class="text-slate-400 text-sm">We'll respect your travel style when suggesting matches.</p>
+          </div>
+
+          <div class="space-y-6">
+            <div>
+              <label class="block text-xs text-slate-400 mb-3 font-medium">Preferred Travel Mode</label>
+              <div class="grid grid-cols-3 gap-3">
+                @for (tm of travelModes; track tm.mode) {
+                  <button (click)="setTravel(tm.mode)"
+                    class="p-4 rounded-2xl border text-center transition-all duration-200"
+                    [class]="travelMode() === tm.mode
+                      ? 'bg-violet-600/20 border-violet-500/50 shadow-lg shadow-violet-500/10'
+                      : 'bg-white/5 border-white/10 hover:bg-white/8'">
+                    <div class="text-3xl mb-2">{{ tm.icon }}</div>
+                    <div class="text-sm font-semibold text-white">{{ tm.label }}</div>
+                    <div class="text-xs text-slate-500 mt-0.5">{{ tm.desc }}</div>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div>
+              <div class="flex justify-between items-center mb-3">
+                <label class="text-xs text-slate-400 font-medium">Max Distance</label>
+                <span class="text-sm font-bold gradient-text">{{ maxDistance() }} km</span>
+              </div>
+              <input type="range" min="1" [max]="cap()" [value]="maxDistance()"
+                (input)="setDistance(+$any($event.target).value)"
+                class="w-full accent-violet-500 cursor-pointer">
+              <div class="flex justify-between text-xs text-slate-600 mt-1">
+                <span>1 km</span><span>{{ cap() / 2 }} km</span><span>{{ cap() }} km</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">
+                Capped at {{ cap() }} km for {{ travelMode() }} travel.
+              </p>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (saveError()) {
+        <div class="mt-4 flex items-center gap-2 text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+          <span>⚠️</span> <span>{{ saveError() }}</span>
+        </div>
+      }
+
+      <div class="flex gap-3 mt-8">
+        @if (step() > 1) {
+          <button (click)="prevStep()" class="btn-ghost flex-1 py-3 rounded-xl font-medium">← Back</button>
+        }
+        @if (step() < 3) {
+          <button (click)="nextStep()" class="btn-primary flex-1 py-3 rounded-xl font-semibold">
+            <span>Continue →</span>
+          </button>
+        } @else {
+          <button (click)="finish()" [disabled]="saving()" class="btn-primary flex-1 py-3 rounded-xl font-semibold">
+            @if (saving()) { Saving… } @else { <span>🚀 Start Exploring!</span> }
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+</div>
