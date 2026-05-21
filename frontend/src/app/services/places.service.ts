@@ -13,9 +13,12 @@ export class PlacesService {
   private _category = signal<PlaceCategory | 'all'>('all');
   private _travelMode = signal<TravelMode>('car');
   private _maxDistance = signal<number>(10);
+  private _lat: number | null = null;
+  private _lng: number | null = null;
 
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly locationName = signal<string>('Current Location');
 
   readonly selectedCategory = this._category.asReadonly();
   readonly selectedTravelMode = this._travelMode.asReadonly();
@@ -29,12 +32,10 @@ export class PlacesService {
     })
   );
 
-  private _lat: number | null = null;
-  private _lng: number | null = null;
-
-  async fetchNearby(lat: number, lng: number) {
+  async fetchNearby(lat: number, lng: number, name?: string) {
     this._lat = lat;
     this._lng = lng;
+    if (name) this.locationName.set(name);
     this.loading.set(true);
     this.error.set(null);
     try {
@@ -48,6 +49,19 @@ export class PlacesService {
       this.error.set('Could not load nearby places.');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async searchLocation(query: string): Promise<{ lat: number; lng: number; name: string } | null> {
+    try {
+      return await firstValueFrom(
+        this.http.get<{ lat: number; lng: number; name: string }>(
+          `${environment.apiBase}/places/geocode`,
+          { params: { q: query } }
+        )
+      );
+    } catch {
+      return null;
     }
   }
 

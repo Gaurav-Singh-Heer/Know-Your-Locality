@@ -20,6 +20,7 @@ router.get('/users/matches', requireAuth, users.matches);
 
 // Places
 router.get('/places', places.nearby);
+router.get('/places/geocode', places.geocode);
 
 // Chat (REST)
 router.get('/chat/history', requireAuth, chat.history);

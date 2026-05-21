@@ -79,6 +79,27 @@
                   </button>
                 }
               </div>
+              <!-- Location row -->
+              <div class="flex items-center gap-2 pt-1 border-t border-white/5">
+                <span class="text-slate-400 text-sm">📍</span>
+                @if (!editingLocation) {
+                  <span class="text-sm text-slate-300 flex-1 truncate">{{ placesService.locationName() }}</span>
+                  <button (click)="useGPS()" class="text-xs text-slate-500 hover:text-slate-300 transition-colors px-2 py-1 rounded-lg hover:bg-white/5">↻ GPS</button>
+                  <button (click)="startEditLocation()" class="text-xs text-violet-400 hover:text-violet-300 transition-colors px-2 py-1 rounded-lg hover:bg-violet-500/10">✏️ Edit</button>
+                } @else {
+                  <input [(ngModel)]="locationInput" (keydown.enter)="applyLocation()"
+                    class="input-field flex-1 text-sm py-1.5" placeholder="Enter city or address…" autofocus>
+                  <button (click)="applyLocation()" [disabled]="locationSearching"
+                    class="btn-primary px-3 py-1.5 text-xs rounded-lg flex-shrink-0">
+                    {{ locationSearching ? '…' : 'Go' }}
+                  </button>
+                  <button (click)="cancelEditLocation()" class="text-slate-500 hover:text-slate-300 text-xl leading-none px-1">×</button>
+                }
+              </div>
+              @if (locationError) {
+                <p class="text-red-400 text-xs -mt-1">{{ locationError }}</p>
+              }
+
               <div class="flex items-center gap-4 pt-1 border-t border-white/5">
                 <span class="text-xs text-slate-400 font-medium">Travel:</span>
                 <div class="flex gap-2">

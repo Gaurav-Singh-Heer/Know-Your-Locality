@@ -1,3 +1,7 @@
+// Dev only: bypass corporate proxy TLS interception
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
 require('dotenv').config();
 const http = require('http');
 const { connectDB } = require('./src/config/db');

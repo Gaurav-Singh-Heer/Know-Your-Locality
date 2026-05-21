@@ -38,11 +38,37 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
 
   private async _loadPlaces() {
     let coords = this.geo.coords();
-    if (!coords) {
-      coords = await this.geo.request();
-    }
-    if (coords) {
-      this.placesService.fetchNearby(coords.lat, coords.lng);
+    if (!coords) coords = await this.geo.request();
+    if (coords) this.placesService.fetchNearby(coords.lat, coords.lng, 'Current Location');
+  }
+
+  // Location editing
+  editingLocation = false;
+  locationInput = '';
+  locationSearching = false;
+  locationError = '';
+
+  startEditLocation() { this.editingLocation = true; this.locationInput = ''; this.locationError = ''; }
+  cancelEditLocation() { this.editingLocation = false; this.locationError = ''; }
+
+  async useGPS() {
+    this.editingLocation = false;
+    const coords = await this.geo.request();
+    if (coords) this.placesService.fetchNearby(coords.lat, coords.lng, 'Current Location');
+  }
+
+  async applyLocation() {
+    const q = this.locationInput.trim();
+    if (!q) return;
+    this.locationSearching = true;
+    this.locationError = '';
+    const result = await this.placesService.searchLocation(q);
+    this.locationSearching = false;
+    if (result) {
+      this.editingLocation = false;
+      this.placesService.fetchNearby(result.lat, result.lng, result.name);
+    } else {
+      this.locationError = 'Location not found. Try a different name.';
     }
   }
 
