@@ -1,13 +1,18 @@
-import { Injectable, signal, computed, inject } from '@angular/core';
+import { Injectable, signal, computed, inject, PLATFORM_ID } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { Place, PlaceCategory } from '../models/place.model';
 import { TravelMode } from '../models/user.model';
 import { environment } from '../../environments/environment';
 
+const LOCATION_KEY = 'kyk_last_location';
+
 @Injectable({ providedIn: 'root' })
 export class PlacesService {
   private http = inject(HttpClient);
+  private _platformId = inject(PLATFORM_ID);
+  private _isBrowser = isPlatformBrowser(this._platformId);
 
   private _places = signal<Place[]>([]);
   private _category = signal<PlaceCategory | 'all'>('all');
@@ -19,6 +24,22 @@ export class PlacesService {
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
   readonly locationName = signal<string>('Current Location');
+
+  constructor() {
+    if (this._isBrowser) {
+      try {
+        const saved = localStorage.getItem(LOCATION_KEY);
+        if (saved) {
+          const { lat, lng, name } = JSON.parse(saved);
+          this._lat = lat;
+          this._lng = lng;
+          if (name) this.locationName.set(name);
+        }
+      } catch { /* ignore */ }
+    }
+  }
+
+  get hasLocation(): boolean { return this._lat !== null && this._lng !== null; }
 
   readonly selectedCategory = this._category.asReadonly();
   readonly selectedTravelMode = this._travelMode.asReadonly();
@@ -36,6 +57,11 @@ export class PlacesService {
     this._lat = lat;
     this._lng = lng;
     if (name) this.locationName.set(name);
+    if (this._isBrowser) {
+      try {
+        localStorage.setItem(LOCATION_KEY, JSON.stringify({ lat, lng, name: name ?? this.locationName() }));
+      } catch { /* ignore */ }
+    }
     this.loading.set(true);
     this.error.set(null);
     try {

@@ -1,5 +1,23 @@
-const PLACES_URL = 'https://places.googleapis.com/v1/places:searchNearby';
-const FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.rating,places.regularOpeningHours,places.types,places.location,places.businessStatus,places.editorialSummary';
+const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
+
+// In-memory cache: key → { places, expiresAt }
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const _cache = new Map();
+
+function cacheKey(lat, lng, radiusM) {
+  return `${lat.toFixed(3)}_${lng.toFixed(3)}_${radiusM}`;
+}
+
+function getCached(key) {
+  const entry = _cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { _cache.delete(key); return null; }
+  return entry.places;
+}
+
+function setCached(key, places) {
+  _cache.set(key, { places, expiresAt: Date.now() + CACHE_TTL_MS });
+}
 
 const CATEGORY_EMOJIS = {
   park: '🌳', restaurant: '🍽️', cafe: '☕', club: '🎵',
@@ -16,21 +34,35 @@ const CATEGORY_FALLBACK_DESC = {
   shopping:   'A shopping destination with multiple stores and brands.',
 };
 
-// Split into more granular groups — each fetches 20, giving ~240 total
-const TYPE_GROUPS = [
-  { category: 'restaurant', types: ['restaurant'] },
-  { category: 'restaurant', types: ['fast_food_restaurant'] },
-  { category: 'cafe',       types: ['cafe', 'bakery'] },
-  { category: 'club',       types: ['bar'] },
-  { category: 'club',       types: ['night_club'] },
-  { category: 'park',       types: ['park'] },
-  { category: 'park',       types: ['national_park'] },
-  { category: 'museum',     types: ['museum'] },
-  { category: 'museum',     types: ['art_gallery', 'tourist_attraction'] },
-  { category: 'gym',        types: ['gym', 'fitness_center'] },
-  { category: 'shopping',   types: ['shopping_mall', 'department_store'] },
-  { category: 'shopping',   types: ['supermarket'] },
+// OSM tag → app category mapping (first match wins)
+const OSM_CATEGORIES = [
+  { category: 'restaurant', key: 'amenity', values: ['restaurant', 'fast_food'] },
+  { category: 'cafe',       key: 'amenity', values: ['cafe'] },
+  { category: 'cafe',       key: 'shop',    values: ['bakery'] },
+  { category: 'club',       key: 'amenity', values: ['bar', 'nightclub', 'pub'] },
+  { category: 'park',       key: 'leisure', values: ['park', 'nature_reserve', 'garden'] },
+  { category: 'museum',     key: 'tourism', values: ['museum', 'gallery', 'attraction'] },
+  { category: 'gym',        key: 'leisure', values: ['fitness_centre', 'sports_centre'] },
+  { category: 'shopping',   key: 'shop',    values: ['mall', 'supermarket', 'department_store', 'convenience'] },
 ];
+
+function buildOverpassQuery(lat, lng, radiusM) {
+  const lines = [];
+  for (const { key, values } of OSM_CATEGORIES) {
+    for (const val of values) {
+      lines.push(`  node["${key}"="${val}"](around:${radiusM},${lat},${lng});`);
+      lines.push(`  way["${key}"="${val}"](around:${radiusM},${lat},${lng});`);
+    }
+  }
+  return `[out:json][timeout:30];\n(\n${lines.join('\n')}\n);\nout body center;`;
+}
+
+function categorize(tags) {
+  for (const { category, key, values } of OSM_CATEGORIES) {
+    if (tags[key] && values.includes(tags[key])) return category;
+  }
+  return null;
+}
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
@@ -48,55 +80,39 @@ function travelTimes(distKm) {
   };
 }
 
-async function fetchGroup(category, types, lat, lng, radiusM, apiKey) {
-  const resp = await fetch(PLACES_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': apiKey,
-      'X-Goog-FieldMask': FIELD_MASK,
-    },
-    body: JSON.stringify({
-      includedTypes: types,
-      maxResultCount: 20,
-      locationRestriction: {
-        circle: { center: { latitude: lat, longitude: lng }, radius: radiusM },
-      },
-    }),
-  });
+function mapElement(el, originLat, originLng) {
+  const tags = el.tags || {};
+  const name = tags.name || tags['name:en'];
+  if (!name) return null;
 
-  const data = await resp.json();
-  if (!resp.ok) {
-    console.error(`[places:${category}]`, data.error?.message);
-    return [];
-  }
+  const elat = el.lat ?? el.center?.lat;
+  const elng = el.lon ?? el.center?.lon;
+  if (!elat || !elng) return null;
 
-  return (data.places || []).map((p) => {
-    const plat = p.location?.latitude;
-    const plng = p.location?.longitude;
-    const dist = plat && plng ? Math.round(haversineKm(lat, lng, plat, plng) * 10) / 10 : 0;
-    return {
-      id: p.id,
-      name: p.displayName?.text || 'Unknown',
-      category,
-      description: p.editorialSummary?.text || CATEGORY_FALLBACK_DESC[category] || '',
-      distance: dist,
-      rating: p.rating || 4.0,
-      emoji: CATEGORY_EMOJIS[category],
-      address: p.formattedAddress || '',
-      openNow: p.regularOpeningHours?.openNow ?? true,
-      tags: (p.types || []).slice(0, 3).map((t) => t.replace(/_/g, ' ')),
-      travelTime: travelTimes(dist),
-    };
-  });
+  const category = categorize(tags);
+  if (!category) return null;
+
+  const dist = Math.round(haversineKm(originLat, originLng, elat, elng) * 10) / 10;
+  const addrParts = [tags['addr:housenumber'], tags['addr:street'], tags['addr:city']].filter(Boolean);
+  const osmTags = [tags.amenity, tags.shop, tags.leisure, tags.tourism].filter(Boolean).map(t => t.replace(/_/g, ' '));
+
+  return {
+    id: String(el.id),
+    name,
+    category,
+    description: tags.description || CATEGORY_FALLBACK_DESC[category],
+    distance: dist,
+    rating: 4.0,
+    emoji: CATEGORY_EMOJIS[category],
+    address: addrParts.length ? addrParts.join(', ') : (tags['addr:full'] || ''),
+    openNow: true,
+    tags: osmTags.slice(0, 3),
+    travelTime: travelTimes(dist),
+  };
 }
 
+// GET /api/places?lat=&lng=&radius=
 async function nearby(req, res) {
-  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!apiKey || apiKey === 'YOUR_MAPS_API_KEY_HERE') {
-    return res.status(500).json({ error: 'GOOGLE_MAPS_API_KEY not configured in .env' });
-  }
-
   const lat = parseFloat(req.query.lat);
   const lng = parseFloat(req.query.lng);
   const radiusKm = Math.min(parseFloat(req.query.radius) || 10, 50);
@@ -106,23 +122,39 @@ async function nearby(req, res) {
     return res.status(400).json({ error: 'lat and lng are required' });
   }
 
-  try {
-    const results = await Promise.all(
-      TYPE_GROUPS.map(({ category, types }) =>
-        fetchGroup(category, types, lat, lng, radiusM, apiKey)
-      )
-    );
+  const key = cacheKey(lat, lng, radiusM);
+  const cached = getCached(key);
+  if (cached) {
+    console.log(`[places] cache hit for ${key}`);
+    return res.json(cached);
+  }
 
+  try {
+    const query = buildOverpassQuery(lat, lng, radiusM);
+    const resp = await fetch(OVERPASS_URL, {
+      method: 'POST',
+      headers: { 'User-Agent': 'KYK-App/1.0' },
+      body: new URLSearchParams({ data: query }),
+    });
+
+    if (!resp.ok) {
+      const text = await resp.text();
+      console.error('[places] Overpass error:', text.slice(0, 200));
+      return res.status(502).json({ error: 'Failed to fetch nearby places' });
+    }
+
+    const data = await resp.json();
     const seen = new Set();
-    const places = results
-      .flat()
-      .filter((p) => {
-        if (seen.has(p.id)) return false;
+    const places = (data.elements || [])
+      .map(el => mapElement(el, lat, lng))
+      .filter(p => {
+        if (!p || seen.has(p.id)) return false;
         seen.add(p.id);
         return true;
       })
       .sort((a, b) => a.distance - b.distance);
 
+    if (places.length > 0) setCached(key, places);
     res.json(places);
   } catch (err) {
     console.error('[places]', err.message);

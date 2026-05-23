@@ -37,6 +37,10 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   ngOnDestroy() { this.ai.disconnect(); }
 
   private async _loadPlaces() {
+    if (this.placesService.hasLocation) {
+      this.placesService.refresh();
+      return;
+    }
     let coords = this.geo.coords();
     if (!coords) coords = await this.geo.request();
     if (coords) this.placesService.fetchNearby(coords.lat, coords.lng, 'Current Location');

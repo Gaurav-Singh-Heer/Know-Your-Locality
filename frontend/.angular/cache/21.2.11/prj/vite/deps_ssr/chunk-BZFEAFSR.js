@@ -7,22 +7,22 @@ import {
   ROUTES,
   Router,
   loadChildren
-} from "./chunk-DT737UOF.js";
+} from "./chunk-YEV2XGH7.js";
 import {
   BrowserDomAdapter,
   BrowserModule,
   EVENT_MANAGER_PLUGINS,
   EventManagerPlugin
-} from "./chunk-ASWFYBCG.js";
-import {
-  HTTP_ROOT_INTERCEPTOR_FNS
-} from "./chunk-3WH3RY3C.js";
+} from "./chunk-Q6L2SI4Q.js";
 import {
   APP_BASE_HREF,
   NullViewportScroller,
   PLATFORM_SERVER_ID,
   ViewportScroller
 } from "./chunk-YK32BLOY.js";
+import {
+  HTTP_ROOT_INTERCEPTOR_FNS
+} from "./chunk-3WH3RY3C.js";
 import {
   PlatformLocation,
   XhrFactory,
@@ -12622,4 +12622,4 @@ export {
   AngularAppEngine,
   createRequestHandler
 };
-//# sourceMappingURL=chunk-VMH6F5EQ.js.map
+//# sourceMappingURL=chunk-BZFEAFSR.js.map
