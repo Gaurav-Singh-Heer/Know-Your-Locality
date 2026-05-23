@@ -4,6 +4,9 @@ const { User } = require('../models/User');
 const Message = require('../models/Message');
 const { generateReply } = require('../services/gemini.service');
 
+// Map userId (string) → Set of WebSocket connections
+const connectedUsers = new Map();
+
 function attachChatSocket(httpServer) {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -28,6 +31,11 @@ function attachChatSocket(httpServer) {
   });
 
   wss.on('connection', (ws) => {
+    // Track connected user
+    const uid = ws.userId.toString();
+    if (!connectedUsers.has(uid)) connectedUsers.set(uid, new Set());
+    connectedUsers.get(uid).add(ws);
+
     ws.send(JSON.stringify({ type: 'system', content: 'connected' }));
 
     ws.on('message', async (raw) => {
@@ -43,10 +51,22 @@ function attachChatSocket(httpServer) {
         const past = await Message.find({ userId: ws.userId }).sort({ createdAt: 1 }).limit(20);
         await Message.create({ userId: ws.userId, role: 'user', content: msg.content });
 
+        const user = await User.findById(ws.userId);
+        const userContext = {
+          name: user?.name,
+          location: user?.location,
+          interests: user?.interests || [],
+          travelMode: user?.travelMode,
+          maxDistance: user?.maxDistance,
+          nearbyPlaces: msg.context?.places || [],
+          matches: msg.context?.matches || [],
+        };
+
         ws.send(JSON.stringify({ type: 'typing', content: true }));
         const reply = await generateReply(
           past.map((m) => ({ role: m.role, content: m.content })),
-          msg.content
+          msg.content,
+          userContext
         );
         await Message.create({ userId: ws.userId, role: 'assistant', content: reply });
         ws.send(JSON.stringify({ type: 'typing', content: false }));
@@ -56,9 +76,27 @@ function attachChatSocket(httpServer) {
         ws.send(JSON.stringify({ type: 'error', content: 'AI service error' }));
       }
     });
+
+    ws.on('close', () => {
+      const set = connectedUsers.get(uid);
+      if (set) {
+        set.delete(ws);
+        if (set.size === 0) connectedUsers.delete(uid);
+      }
+    });
   });
 
   return wss;
 }
 
-module.exports = { attachChatSocket };
+/** Push a DM notification to a user if they're connected via WebSocket. */
+function notifyUser(userId, payload) {
+  const set = connectedUsers.get(userId.toString());
+  if (!set) return;
+  const data = JSON.stringify(payload);
+  for (const ws of set) {
+    if (ws.readyState === 1) ws.send(data);
+  }
+}
+
+module.exports = { attachChatSocket, notifyUser };

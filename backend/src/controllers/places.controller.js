@@ -152,7 +152,8 @@ async function nearby(req, res) {
         seen.add(p.id);
         return true;
       })
-      .sort((a, b) => a.distance - b.distance);
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, 150);
 
     if (places.length > 0) setCached(key, places);
     res.json(places);
