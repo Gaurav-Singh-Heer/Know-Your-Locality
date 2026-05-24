@@ -1,4 +1,4 @@
-# KYK / KYL — Know Your Locality
+# KYL — Know Your Locality
 
 Two-folder workspace:
 

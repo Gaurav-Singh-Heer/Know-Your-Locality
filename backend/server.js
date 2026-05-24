@@ -21,3 +21,10 @@ main().catch((err) => {
   console.error('[fatal]', err);
   process.exit(1);
 });
+
+// Vercel serverless export
+let _app;
+module.exports = async (req, res) => {
+  if (!_app) { await connectDB(); _app = createApp(); }
+  _app(req, res);
+};
