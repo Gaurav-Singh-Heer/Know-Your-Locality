@@ -64,6 +64,43 @@
     <!-- TAB CONTENT -->
     <main class="flex-1 overflow-hidden">
 
+      <!-- ===== LOCATION OVERLAY ===== -->
+      @if (showLocationOverlay()) {
+        <div class="location-overlay">
+          <div class="glass rounded-3xl p-8 border border-white/10 max-w-md w-full mx-4 text-center shadow-2xl shadow-violet-900/20">
+            <div class="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500/20 to-cyan-500/20 flex items-center justify-center text-4xl mx-auto mb-5 border border-violet-500/20">
+              📍
+            </div>
+            <h2 class="text-xl font-bold text-white mb-2">Location Access Required</h2>
+            <p class="text-slate-400 text-sm mb-6 leading-relaxed">
+              We need your location to discover places, people, and experiences near you. Please enter your city or allow GPS access.
+            </p>
+
+            <div class="flex gap-2 mb-3">
+              <input [(ngModel)]="overlayLocationInput" (keydown.enter)="submitOverlayLocation()"
+                class="input-field flex-1 text-sm" placeholder="Enter your city or area…">
+              <button (click)="submitOverlayLocation()" [disabled]="overlaySearching"
+                class="btn-primary px-5 py-3 rounded-xl text-sm font-semibold flex-shrink-0">
+                {{ overlaySearching ? '...' : 'Go' }}
+              </button>
+            </div>
+            @if (overlayError) {
+              <p class="text-red-400 text-xs mb-3">{{ overlayError }}</p>
+            }
+
+            <div class="flex items-center gap-3 justify-center mt-4">
+              <div class="h-px flex-1 bg-white/10"></div>
+              <span class="text-xs text-slate-500">or</span>
+              <div class="h-px flex-1 bg-white/10"></div>
+            </div>
+
+            <button (click)="retryGPS()" class="mt-4 text-sm text-violet-400 hover:text-violet-300 transition-colors font-medium">
+              ↻ Try GPS Again
+            </button>
+          </div>
+        </div>
+      }
+
       <!-- ===== EXPLORE TAB ===== -->
       @if (activeTab() === 'explore') {
         <div class="h-full overflow-y-auto">
@@ -122,75 +159,131 @@
               </div>
             </div>
 
-            <!-- Results count -->
-            <div class="flex items-center justify-between mb-4">
-              <p class="text-sm text-slate-400"><span class="text-white font-semibold">{{ places().length }}</span> places found nearby</p>
+            <!-- Search, Sort, View toggle -->
+            <div class="flex items-center gap-3 mb-4 flex-wrap">
+              <div class="relative flex-1 min-w-[180px]">
+                <input [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)"
+                  class="input-field w-full text-sm py-2 pl-9" placeholder="Search places…">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">🔍</span>
+              </div>
+              <select [ngModel]="sortMode()" (ngModelChange)="sortMode.set($event)"
+                class="input-field text-sm py-2 px-3 w-auto cursor-pointer">
+                <option value="distance">Nearest</option>
+                <option value="rating">Top rated</option>
+                <option value="name">A - Z</option>
+              </select>
+              <p class="text-sm text-slate-400 ml-auto"><span class="text-white font-semibold">{{ places().length }}</span> places</p>
             </div>
 
-            <!-- Loading -->
+            <!-- Loading skeleton -->
             @if (placesService.loading()) {
-              <div class="text-center py-20">
-                <div class="text-4xl mb-4 animate-spin inline-block">🌐</div>
-                <p class="text-slate-400 mt-2">Finding places near you…</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @for (i of [1,2,3,4,5,6]; track i) {
+                  <div class="place-card animate-pulse">
+                    <div class="flex items-center gap-3 mb-4">
+                      <div class="w-14 h-14 rounded-xl bg-white/8"></div>
+                      <div class="flex-1">
+                        <div class="h-4 bg-white/8 rounded w-3/4 mb-2"></div>
+                        <div class="h-3 bg-white/5 rounded w-1/2"></div>
+                      </div>
+                    </div>
+                    <div class="h-3 bg-white/5 rounded w-full mb-2"></div>
+                    <div class="h-3 bg-white/5 rounded w-2/3 mb-4"></div>
+                    <div class="flex gap-2">
+                      <div class="h-6 bg-white/5 rounded-full w-16"></div>
+                      <div class="h-6 bg-white/5 rounded-full w-14"></div>
+                    </div>
+                  </div>
+                }
               </div>
             }
 
-            <!-- Error -->
+            <!-- Error state -->
             @if (placesService.error()) {
-              <div class="text-center py-20">
+              <div class="glass rounded-2xl p-8 border border-red-500/10 text-center">
                 <div class="text-5xl mb-4">⚠️</div>
-                <p class="text-slate-400">{{ placesService.error() }}</p>
+                <p class="text-slate-300 font-medium mb-2">Something went wrong</p>
+                <p class="text-slate-500 text-sm mb-4">{{ placesService.error() }}</p>
+                <button (click)="placesService.refresh()" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold">
+                  ↻ Retry
+                </button>
               </div>
             }
 
-            <!-- Places grid -->
+            <!-- Empty state -->
             @if (!placesService.loading() && !placesService.error() && places().length === 0) {
-              <div class="text-center py-20">
+              <div class="glass rounded-2xl p-10 border border-white/5 text-center">
                 <div class="text-5xl mb-4">🔍</div>
-                <p class="text-slate-400">No places match your filters. Try expanding the distance.</p>
+                <p class="text-white font-medium mb-2">No places found</p>
+                <p class="text-slate-400 text-sm mb-1">Try adjusting your filters:</p>
+                <ul class="text-slate-500 text-xs space-y-1">
+                  <li>- Increase the max distance</li>
+                  <li>- Select "All" categories</li>
+                  <li>- Clear the search query</li>
+                </ul>
               </div>
             }
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              @for (place of places(); track place.id) {
-                <div class="place-card">
-                  <div class="flex items-start justify-between mb-3">
-                    <div class="flex items-center gap-3">
-                      <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/20 to-cyan-600/20 flex items-center justify-center text-2xl border border-white/8">
+
+
+            <!-- Grid view -->
+            @if (!placesService.loading() && !placesService.error() && places().length > 0) {
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                @for (place of places(); track place.id) {
+                  <div class="place-card relative overflow-hidden">
+                    <!-- Category gradient header -->
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r" [class]="categoryGradient(place.category)"></div>
+
+                    <!-- Distance badge -->
+                    <div class="absolute top-3 right-3 px-2 py-0.5 rounded-lg bg-black/40 border border-white/10 text-xs text-slate-300 backdrop-blur-sm">
+                      {{ place.distance }}km
+                    </div>
+
+                    <div class="flex items-start gap-3 mb-3 pr-14">
+                      <div class="w-14 h-14 rounded-xl bg-gradient-to-br flex items-center justify-center text-2xl border border-white/8 flex-shrink-0"
+                        [class]="categoryGradient(place.category)">
                         {{ place.emoji }}
                       </div>
-                      <div>
-                        <h3 class="font-semibold text-white text-sm leading-tight">{{ place.name }}</h3>
-                        <p class="text-slate-500 text-xs mt-0.5">{{ place.address }}</p>
+                      <div class="min-w-0">
+                        <h3 class="font-semibold text-white leading-tight">{{ place.name }}</h3>
+                        <p class="text-slate-500 text-xs mt-0.5 truncate">{{ place.address }}</p>
+                        <!-- Open/Closed indicator -->
+                        @if (place.openNow) {
+                          <span class="text-[10px] text-green-400 font-medium">● Open now</span>
+                        } @else {
+                          <span class="text-[10px] text-red-400 font-medium">● Closed</span>
+                        }
+                      </div>
+                    </div>
+
+                    @if (place.description) {
+                      <p class="text-slate-400 text-xs leading-relaxed mb-3">{{ place.description }}</p>
+                    }
+
+                    <!-- Tags -->
+                    <div class="flex flex-wrap gap-1.5 mb-3">
+                      <span class="tag">{{ place.category }}</span>
+                      @for (tag of place.tags; track tag) {
+                        <span class="tag" style="background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)">{{ tag }}</span>
+                      }
+                    </div>
+
+                    <!-- Footer: rating + travel time -->
+                    <div class="flex items-center justify-between text-xs pt-2 border-t border-white/5">
+                      <div class="flex items-center gap-1">
+                        @for (s of getStars(place.rating); track $index) {
+                          <span [class]="s === '★' ? 'star' : 'text-slate-600'">{{ s }}</span>
+                        }
+                        <span class="text-slate-400 ml-1">{{ place.rating }}</span>
+                      </div>
+                      <div class="flex items-center gap-1.5 text-slate-400">
+                        <span>{{ travelIcon() }}</span>
+                        <span class="gradient-text font-semibold">{{ getTravelTime(place) }} min</span>
                       </div>
                     </div>
                   </div>
-
-                  <p class="text-slate-400 text-xs leading-relaxed mb-3">{{ place.description }}</p>
-
-                  <div class="flex items-center gap-2 mb-3">
-                    <span class="tag">{{ place.category }}</span>
-                    @if (place.openNow) {
-                      <span class="tag" style="background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.3);color:#4ade80">● Open</span>
-                    } @else {
-                      <span class="tag" style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3);color:#f87171">● Closed</span>
-                    }
-                  </div>
-
-                  <div class="flex items-center justify-between text-xs">
-                    <div class="flex items-center gap-1">
-                      @for (s of getStars(place.rating); track $index) {
-                        <span [class]="s === '★' ? 'star' : 'text-slate-600'">{{ s }}</span>
-                      }
-                      <span class="text-slate-400 ml-1">{{ place.rating }}</span>
-                    </div>
-                    <div class="flex items-center gap-3 text-slate-400">
-                      <span>📍 {{ place.distance }}km</span>
-                      <span class="gradient-text font-semibold">⏱ {{ getTravelTime(place) }}min</span>
-                    </div>
-                  </div>
-                </div>
-              }
-            </div>
+                }
+              </div>
+            }
           </div>
         </div>
       }
@@ -340,6 +433,13 @@
             <div class="p-4 border-b border-white/5">
               <h3 class="text-sm font-semibold text-slate-300">Messages</h3>
             </div>
+            @if (conversations().length === 0) {
+              <div class="p-6 text-center">
+                <div class="text-4xl mb-3">💬</div>
+                <p class="text-slate-400 text-sm">No conversations yet.</p>
+                <p class="text-slate-500 text-xs mt-1">Connect with a match to start chatting!</p>
+              </div>
+            }
             @for (convo of conversations(); track convo.userId) {
               <button class="w-full text-left p-4 flex items-center gap-3 border-b border-white/3 transition-all hover:bg-white/4"
                 [class]="activeConvoId() === convo.userId ? 'bg-violet-600/10 border-l-2 border-l-violet-500' : ''"

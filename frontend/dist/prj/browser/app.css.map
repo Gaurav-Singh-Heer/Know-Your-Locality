@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": ["app.ts"],
-  "sourcesContent": [":host { display: block; min-height: 100vh; }"],
-  "mappings": ";AAAA;AAAQ,WAAA;AAAgB,cAAA;AAAmB;",
-  "names": []
-}
