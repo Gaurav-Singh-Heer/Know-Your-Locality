@@ -261,10 +261,10 @@
                 </div>
                 <div class="grid grid-cols-2 gap-2.5 w-full max-w-xs text-left">
                   @for (f of plannerFeatures; track f.icon) {
-                    <div class="glass rounded-xl p-3 border border-white/5 hover:border-violet-500/20 transition-colors">
+                    <button (click)="selectFeature(f.prompt)" class="glass rounded-xl p-3 border border-white/5 hover:border-violet-500/20 transition-colors text-left cursor-pointer w-full">
                       <div class="text-xl mb-1">{{ f.icon }}</div>
                       <p class="text-xs text-slate-400 leading-snug">{{ f.label }}</p>
-                    </div>
+                    </button>
                   }
                 </div>
               </div>

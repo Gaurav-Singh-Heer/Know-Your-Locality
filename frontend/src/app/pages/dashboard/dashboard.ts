@@ -134,11 +134,16 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   plannerLoading = computed(() => this.ai.typing());
 
   plannerFeatures = [
-    { icon: '🗺️', label: 'Discover places nearby' },
-    { icon: '👥', label: 'Match with locals' },
-    { icon: '📅', label: 'Plan your full day' },
-    { icon: '✨', label: 'Personalized to your vibe' },
+    { icon: '🗺️', label: 'Discover places nearby', prompt: 'What interesting places are near me right now?' },
+    { icon: '👥', label: 'Match with locals', prompt: 'Help me find locals I can connect with today.' },
+    { icon: '📅', label: 'Plan your full day', prompt: 'Plan a full day outing for me.' },
+    { icon: '✨', label: 'Personalized to your vibe', prompt: 'Suggest something fun and personalized based on my vibe.' },
   ];
+
+  selectFeature(prompt: string) {
+    this.plannerInput = prompt;
+    this.sendPlannerMessage();
+  }
 
   sendPlannerMessage() {
     const text = this.plannerInput.trim();
