@@ -12,4 +12,6 @@ export interface Place {
   openNow: boolean;
   tags: string[];
   travelTime: { car: number; bike: number; walk: number };
+  lat: number | null;
+  lng: number | null;
 }

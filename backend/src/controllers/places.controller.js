@@ -73,8 +73,8 @@ async function fetchGroup(category, types, lat, lng, radiusM, apiKey) {
   }
 
   return (data.places || []).map((p) => {
-    const plat = p.location?.latitude;
-    const plng = p.location?.longitude;
+    const plat = p.location?.latitude ?? null;
+    const plng = p.location?.longitude ?? null;
     const dist = plat && plng ? Math.round(haversineKm(lat, lng, plat, plng) * 10) / 10 : 0;
     return {
       id: p.id,
@@ -88,6 +88,8 @@ async function fetchGroup(category, types, lat, lng, radiusM, apiKey) {
       openNow: p.regularOpeningHours?.openNow ?? true,
       tags: (p.types || []).slice(0, 3).map((t) => t.replace(/_/g, ' ')),
       travelTime: travelTimes(dist),
+      lat: plat,
+      lng: plng,
     };
   });
 }
@@ -108,6 +110,8 @@ function cacheToDTO(doc) {
     openNow: doc.openNow,
     tags: doc.tags,
     travelTime: doc.travelTime,
+    lat: doc.lat ?? null,
+    lng: doc.lng ?? null,
   };
 }
 
@@ -173,6 +177,8 @@ async function nearby(req, res) {
           openNow: p.openNow,
           tags: p.tags,
           travelTime: p.travelTime,
+          lat: p.lat,
+          lng: p.lng,
           cacheLat,
           cacheLng,
           cacheRadius: radiusKm,

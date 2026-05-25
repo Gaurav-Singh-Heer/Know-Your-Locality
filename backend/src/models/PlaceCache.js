@@ -12,6 +12,8 @@ const placeCacheSchema = new mongoose.Schema({
   openNow:     Boolean,
   tags:        [String],
   travelTime:  { car: Number, bike: Number, walk: Number },
+  lat:         Number,
+  lng:         Number,
   // Cache key fields
   cacheLat:    { type: Number, required: true },
   cacheLng:    { type: Number, required: true },

@@ -110,6 +110,21 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
 
   getTravelTime(place: any) { return this.placesService.getTravelTime(place); }
 
+  // Google Maps modal
+  pendingMapPlace = signal<Place | null>(null);
+
+  openPlace(place: Place) { this.pendingMapPlace.set(place); }
+  cancelOpenMaps() { this.pendingMapPlace.set(null); }
+  confirmOpenMaps() {
+    const p = this.pendingMapPlace();
+    if (!p) return;
+    const url = p.lat && p.lng
+      ? `https://www.google.com/maps?q=${p.lat},${p.lng}(${encodeURIComponent(p.name)})`
+      : `https://www.google.com/maps/place/?q=place_id:${p.id}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+    this.pendingMapPlace.set(null);
+  }
+
   // AI Planner — backed by the WebSocket-powered Gemini service
   plannerInput = '';
   private _shouldScrollPlanner = false;

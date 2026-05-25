@@ -143,16 +143,30 @@
               </div>
             }
 
-            <!-- Places grid -->
-            @if (!placesService.loading() && !placesService.error() && places().length === 0) {
-              <div class="text-center py-20">
-                <div class="text-5xl mb-4">🔍</div>
-                <p class="text-slate-400">No places match your filters. Try expanding the distance.</p>
-              </div>
+            <!-- Empty states -->
+            @if (!placesService.loading() && !placesService.error()) {
+              @if (!geo.coords() && places().length === 0) {
+                <div class="text-center py-20">
+                  <div class="text-5xl mb-4">📍</div>
+                  <p class="text-white font-semibold mb-2">Location needed</p>
+                  <p class="text-slate-400 text-sm mb-6 max-w-xs mx-auto">Allow location access or enter a location manually to find nearby places.</p>
+                  <div class="flex items-center justify-center gap-3">
+                    <button (click)="useGPS()" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold">↻ Use GPS</button>
+                    <button (click)="startEditLocation()" class="filter-chip px-5 py-2.5 text-sm">✏️ Enter Location</button>
+                  </div>
+                </div>
+              } @else if (geo.coords() && places().length === 0) {
+                <div class="text-center py-20">
+                  <div class="text-5xl mb-4">🔍</div>
+                  <p class="text-slate-400">No places found nearby. Try expanding the distance or changing filters.</p>
+                </div>
+              }
             }
+
+            <!-- Places grid -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               @for (place of places(); track place.id) {
-                <div class="place-card">
+                <div class="place-card cursor-pointer group" (click)="openPlace(place)">
                   <div class="flex items-start justify-between mb-3">
                     <div class="flex items-center gap-3">
                       <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/20 to-cyan-600/20 flex items-center justify-center text-2xl border border-white/8">
@@ -160,12 +174,13 @@
                       </div>
                       <div>
                         <h3 class="font-semibold text-white text-sm leading-tight">{{ place.name }}</h3>
-                        <p class="text-slate-500 text-xs mt-0.5">{{ place.address }}</p>
+                        <p class="text-slate-500 text-xs mt-0.5 truncate max-w-[160px]">{{ place.address }}</p>
                       </div>
                     </div>
+                    <span class="text-slate-600 group-hover:text-violet-400 transition-colors text-lg leading-none ml-2 flex-shrink-0">↗</span>
                   </div>
 
-                  <p class="text-slate-400 text-xs leading-relaxed mb-3">{{ place.description }}</p>
+                  <p class="text-slate-400 text-xs leading-relaxed mb-3 line-clamp-2">{{ place.description }}</p>
 
                   <div class="flex items-center gap-2 mb-3">
                     <span class="tag">{{ place.category }}</span>
@@ -539,3 +554,45 @@
     </main>
   </div>
 </div>
+
+<!-- Google Maps confirmation modal -->
+@if (pendingMapPlace()) {
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-4"
+       style="background:rgba(0,0,0,0.65);backdrop-filter:blur(8px)"
+       (click)="cancelOpenMaps()">
+    <div class="glass rounded-2xl p-6 w-full max-w-sm border border-white/10 shadow-2xl shadow-violet-500/15 animate-fade-in-up"
+         (click)="$event.stopPropagation()">
+
+      <div class="flex items-start gap-4 mb-5">
+        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-violet-600/25 to-cyan-600/25 flex items-center justify-center text-3xl border border-white/8 flex-shrink-0">
+          {{ pendingMapPlace()!.emoji }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-semibold text-white leading-tight">{{ pendingMapPlace()!.name }}</h3>
+          <p class="text-slate-400 text-xs mt-1 leading-relaxed">{{ pendingMapPlace()!.address }}</p>
+          <div class="flex items-center gap-3 mt-2 text-xs text-slate-500">
+            <span>📍 {{ pendingMapPlace()!.distance }}km away</span>
+            @if (pendingMapPlace()!.openNow) {
+              <span class="text-green-400">● Open now</span>
+            } @else {
+              <span class="text-red-400">● Closed</span>
+            }
+          </div>
+        </div>
+      </div>
+
+      <p class="text-slate-400 text-sm mb-5">Open this place in Google Maps?</p>
+
+      <div class="flex gap-3">
+        <button (click)="cancelOpenMaps()"
+          class="flex-1 py-2.5 rounded-xl border border-white/10 text-slate-400 hover:text-white hover:bg-white/5 text-sm font-medium transition-all">
+          Cancel
+        </button>
+        <button (click)="confirmOpenMaps()"
+          class="flex-1 py-2.5 rounded-xl btn-primary text-sm font-semibold flex items-center justify-center gap-2">
+          <span>🗺️</span><span>Open Maps</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
