@@ -1,3 +1,4 @@
+const PlaceCache = require('../models/PlaceCache');
 const PLACES_URL = 'https://places.googleapis.com/v1/places:searchNearby';
 const FIELD_MASK = 'places.id,places.displayName,places.formattedAddress,places.rating,places.regularOpeningHours,places.types,places.location,places.businessStatus,places.editorialSummary';
 
@@ -91,6 +92,25 @@ async function fetchGroup(category, types, lat, lng, radiusM, apiKey) {
   });
 }
 
+// Round to 3 decimal places (~111 m precision) for cache key
+const round3 = (n) => Math.round(n * 1000) / 1000;
+
+function cacheToDTO(doc) {
+  return {
+    id: doc.placeId,
+    name: doc.name,
+    category: doc.category,
+    description: doc.description,
+    distance: doc.distance,
+    rating: doc.rating,
+    emoji: doc.emoji,
+    address: doc.address,
+    openNow: doc.openNow,
+    tags: doc.tags,
+    travelTime: doc.travelTime,
+  };
+}
+
 async function nearby(req, res) {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey || apiKey === 'YOUR_MAPS_API_KEY_HERE') {
@@ -106,13 +126,28 @@ async function nearby(req, res) {
     return res.status(400).json({ error: 'lat and lng are required' });
   }
 
+  const cacheLat = round3(lat);
+  const cacheLng = round3(lng);
+
   try {
+    // Return cached results if available (TTL handled by MongoDB index)
+    const cached = await PlaceCache.find({ cacheLat, cacheLng, cacheRadius: radiusKm })
+      .sort({ distance: 1 })
+      .lean();
+
+    if (cached.length > 0) {
+      console.log(`[places] cache hit — ${cached.length} places`);
+      return res.json(cached.map(cacheToDTO));
+    }
+
+    // Fetch fresh from Google Places API
     const results = await Promise.all(
       TYPE_GROUPS.map(({ category, types }) =>
         fetchGroup(category, types, lat, lng, radiusM, apiKey)
       )
     );
 
+    // Deduplicate and sort small → large
     const seen = new Set();
     const places = results
       .flat()
@@ -122,6 +157,30 @@ async function nearby(req, res) {
         return true;
       })
       .sort((a, b) => a.distance - b.distance);
+
+    // Persist to DB cache asynchronously (don't block the response)
+    if (places.length > 0) {
+      PlaceCache.insertMany(
+        places.map((p) => ({
+          placeId: p.id,
+          name: p.name,
+          category: p.category,
+          description: p.description,
+          distance: p.distance,
+          rating: p.rating,
+          emoji: p.emoji,
+          address: p.address,
+          openNow: p.openNow,
+          tags: p.tags,
+          travelTime: p.travelTime,
+          cacheLat,
+          cacheLng,
+          cacheRadius: radiusKm,
+          cachedAt: new Date(),
+        })),
+        { ordered: false }
+      ).catch((err) => console.error('[places] cache write error:', err.message));
+    }
 
     res.json(places);
   } catch (err) {

@@ -22,6 +22,8 @@ export class AiChatService {
   readonly error = signal<string | null>(null);
   /** 'connecting' → trying WS | 'live' → WS open | 'http' → REST fallback (WS unavailable) */
   readonly wsMode = signal<'connecting' | 'live' | 'http'>('connecting');
+  /** Emits each incoming DM notification so ChatService can react */
+  readonly lastDm = signal<{ id: string; senderId: string; senderName: string; content: string; timestamp: string } | null>(null);
 
   async connect(): Promise<void> {
     if (!this._isBrowser) return;
@@ -57,6 +59,8 @@ export class AiChatService {
         else if (msg.type === 'assistant') {
           this.messages.update((arr) => [...arr, { role: 'assistant', content: msg.content, at: new Date() }]);
           this.typing.set(false);
+        } else if (msg.type === 'dm') {
+          this.lastDm.set(msg.message);
         } else if (msg.type === 'error') {
           this.error.set(msg.content);
           this.typing.set(false);

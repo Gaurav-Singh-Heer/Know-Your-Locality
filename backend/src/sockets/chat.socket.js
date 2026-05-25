@@ -4,6 +4,16 @@ const { User } = require('../models/User');
 const Message = require('../models/Message');
 const { generateReply } = require('../services/gemini.service');
 
+// Track connected clients so DM controller can push notifications
+const onlineClients = new Map(); // userId string → WebSocket
+
+function notifyUser(userId, payload) {
+  const ws = onlineClients.get(userId.toString());
+  if (ws && ws.readyState === 1 /* OPEN */) {
+    ws.send(JSON.stringify(payload));
+  }
+}
+
 function attachChatSocket(httpServer) {
   const wss = new WebSocketServer({ noServer: true });
 
@@ -28,7 +38,12 @@ function attachChatSocket(httpServer) {
   });
 
   wss.on('connection', (ws) => {
+    const userIdStr = ws.userId.toString();
+    onlineClients.set(userIdStr, ws);
+
     ws.send(JSON.stringify({ type: 'system', content: 'connected' }));
+
+    ws.on('close', () => onlineClients.delete(userIdStr));
 
     ws.on('message', async (raw) => {
       let msg;
@@ -62,4 +77,4 @@ function attachChatSocket(httpServer) {
   return wss;
 }
 
-module.exports = { attachChatSocket };
+module.exports = { attachChatSocket, notifyUser };

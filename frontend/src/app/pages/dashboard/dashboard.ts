@@ -34,6 +34,7 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
     this.ai.connect();
     this._loadPlaces();
     this.matchService.fetchMatches();
+    this.chatService.loadConversations();
   }
   ngOnDestroy() { this.ai.disconnect(); }
 
@@ -164,10 +165,13 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   // Matches
   matches = this.matchService.matches;
 
-  connectMatch(match: any) {
-    this.chatService.startConversation(match.id, match.name, match.name.split(' ').map((n: string) => n[0]).join(''), match.compatibility);
+  async connectMatch(match: any) {
+    await this.chatService.startConversation(
+      match.id, match.name,
+      match.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase(),
+      match.compatibility
+    );
     this.activeTab.set('chat');
-    this.chatService.setActive(match.id);
   }
 
   // Chat
@@ -179,6 +183,7 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   });
   chatInput = '';
   private _shouldScroll = false;
+  private _lastChatMsgCount = 0;
 
   selectConvo(userId: string) {
     this.chatService.setActive(userId);
@@ -194,6 +199,12 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   }
 
   ngAfterViewChecked() {
+    // Auto-scroll chat when new messages arrive (sent or received)
+    const chatMsgCount = this.chatService.messages().length;
+    if (chatMsgCount > this._lastChatMsgCount) {
+      this._lastChatMsgCount = chatMsgCount;
+      this._shouldScroll = true;
+    }
     if (this._shouldScroll && this.chatEnd) {
       this.chatEnd.nativeElement.scrollIntoView({ behavior: 'smooth' });
       this._shouldScroll = false;

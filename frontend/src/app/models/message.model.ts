@@ -2,7 +2,7 @@ export interface Message {
   id: string;
   senderId: string;
   content: string;
-  timestamp: Date;
+  timestamp: Date | string;
   isOwn: boolean;
 }
 
@@ -14,6 +14,5 @@ export interface Conversation {
   lastMessage: string;
   lastTime: string;
   unread: number;
-  messages: Message[];
   online: boolean;
 }

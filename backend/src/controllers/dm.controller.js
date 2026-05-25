@@ -27,27 +27,35 @@ async function conversations(req, res) {
   ]);
 
   const partnerIds = msgs.map((m) => m._id);
-  const users = await User.find({ _id: { $in: partnerIds } }).select('name');
-  const userMap = {};
-  for (const u of users) userMap[u._id.toString()] = u.name;
-
-  // Count unread per partner
-  const unreadAgg = await DirectMessage.aggregate([
-    { $match: { to: me, readAt: null, from: { $in: partnerIds } } },
-    { $group: { _id: '$from', count: { $sum: 1 } } },
+  const [partners, unreadAgg] = await Promise.all([
+    User.find({ _id: { $in: partnerIds } }).select('name interests'),
+    DirectMessage.aggregate([
+      { $match: { to: me, readAt: null, from: { $in: partnerIds } } },
+      { $group: { _id: '$from', count: { $sum: 1 } } },
+    ]),
   ]);
+
+  const partnerMap = {};
+  for (const u of partners) partnerMap[u._id.toString()] = u;
   const unreadMap = {};
   for (const u of unreadAgg) unreadMap[u._id.toString()] = u.count;
 
+  const myInterests = req.user.interests || [];
+
   const result = msgs.map((m) => {
     const id = m._id.toString();
-    const name = userMap[id] || 'Unknown';
-    const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2);
+    const partner = partnerMap[id];
+    const name = partner?.name || 'Unknown';
+    const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+    const mutual = myInterests.filter((i) => (partner?.interests || []).includes(i));
+    const compatibility = myInterests.length
+      ? Math.round((mutual.length / myInterests.length) * 100)
+      : 0;
     return {
       userId: id,
       userName: name,
       userAvatar: initials,
-      compatibility: 0,
+      compatibility,
       lastMessage: m.lastMessage,
       lastTime: formatTime(m.lastTime),
       unread: unreadMap[id] || 0,
