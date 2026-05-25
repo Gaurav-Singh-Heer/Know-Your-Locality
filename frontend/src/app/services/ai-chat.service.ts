@@ -12,6 +12,9 @@ export class AiChatService {
   private auth = inject(AuthService);
 
   private ws: WebSocket | null = null;
+  private _locationContext = '';
+
+  setLocationContext(ctx: string) { this._locationContext = ctx; }
 
   readonly messages = signal<AiMessage[]>([]);
   readonly typing = signal(false);
@@ -67,7 +70,7 @@ export class AiChatService {
     if (!text) return;
     this.messages.update((arr) => [...arr, { role: 'user', content: text, at: new Date() }]);
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({ type: 'user', content: text }));
+      this.ws.send(JSON.stringify({ type: 'user', content: text, context: this._locationContext }));
       this.typing.set(true);
     } else {
       // REST fallback
@@ -83,7 +86,7 @@ export class AiChatService {
       const res = await fetch(`${environment.apiBase}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content, context: this._locationContext }),
       });
       if (res.ok) {
         const { reply } = await res.json();

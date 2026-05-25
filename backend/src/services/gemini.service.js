@@ -3,10 +3,14 @@ const SYSTEM_PROMPT = `You are KYK's friendly companion AI. You help users disco
 new people based on their interests, travel mode, and distance limits.
 Be warm, concise, and human. Suggest concrete next steps.`;
 
-async function generateReply(history, userMessage) {
+async function generateReply(history, userMessage, context = '') {
   const apiKey = process.env.GEMINI_API_KEY;
   const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
   if (!apiKey) throw new Error('GEMINI_API_KEY is not set');
+
+  const fullSystem = context
+    ? `${SYSTEM_PROMPT}\n\nCurrent user context (use this to give specific, relevant suggestions):\n${context}`
+    : SYSTEM_PROMPT;
 
   const contents = [];
   for (const m of history.slice(-12)) {
@@ -23,7 +27,7 @@ async function generateReply(history, userMessage) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      systemInstruction: { role: 'system', parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { role: 'system', parts: [{ text: fullSystem }] },
       contents,
       generationConfig: { temperature: 0.8, maxOutputTokens: 512 },
     }),

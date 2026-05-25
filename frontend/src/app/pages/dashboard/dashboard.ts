@@ -7,7 +7,7 @@ import { MatchService } from '../../services/match.service';
 import { ChatService } from '../../services/chat.service';
 import { AiChatService } from '../../services/ai-chat.service';
 import { GeolocationService } from '../../services/geolocation.service';
-import { PlaceCategory } from '../../models/place.model';
+import { Place, PlaceCategory } from '../../models/place.model';
 import { TravelMode } from '../../models/user.model';
 
 type Tab = 'explore' | 'planner' | 'matches' | 'chat';
@@ -112,6 +112,7 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   // AI Planner — backed by the WebSocket-powered Gemini service
   plannerInput = '';
   private _shouldScrollPlanner = false;
+  private _lastPlannerMsgCount = 0;
 
   plannerMessages = computed(() => this.ai.messages());
   plannerLoading = computed(() => this.ai.typing());
@@ -127,8 +128,32 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
     const text = this.plannerInput.trim();
     if (!text || this.plannerLoading()) return;
     this.plannerInput = '';
+    this.ai.setLocationContext(this._buildLocationContext());
     this.ai.send(text);
     this._shouldScrollPlanner = true;
+  }
+
+  private _buildLocationContext(): string {
+    const locationName = this.placesService.locationName();
+    const coords = this.geo.coords();
+    const travelMode = this.placesService.selectedTravelMode();
+    const maxDist = this.placesService.maxDistance();
+    const places = this.placesService.filteredPlaces();
+
+    const lines: string[] = [];
+    if (locationName) lines.push(`User's location: ${locationName}`);
+    if (coords) lines.push(`Coordinates: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`);
+    lines.push(`Travel mode: ${travelMode} | Max distance: ${maxDist}km`);
+    if (places.length > 0) {
+      lines.push(`Nearby places (${places.length} found):`);
+      places.slice(0, 20).forEach((p: Place) => {
+        const status = p.openNow ? 'open' : 'closed';
+        lines.push(`- ${p.name} (${p.category}, ${p.distance}km away, ${status}, ★${p.rating})`);
+      });
+    } else {
+      lines.push('No nearby places loaded yet — suggest the user explore the Explore tab first.');
+    }
+    return lines.join('\n');
   }
 
   formatTime(d: Date | undefined): string {
@@ -172,6 +197,12 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
     if (this._shouldScroll && this.chatEnd) {
       this.chatEnd.nativeElement.scrollIntoView({ behavior: 'smooth' });
       this._shouldScroll = false;
+    }
+    // Auto-scroll planner whenever a new message arrives (user or AI)
+    const msgCount = this.ai.messages().length;
+    if (msgCount > this._lastPlannerMsgCount) {
+      this._lastPlannerMsgCount = msgCount;
+      this._shouldScrollPlanner = true;
     }
     if (this._shouldScrollPlanner && this.plannerEnd) {
       this.plannerEnd.nativeElement.scrollIntoView({ behavior: 'smooth' });

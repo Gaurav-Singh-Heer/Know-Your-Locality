@@ -46,7 +46,8 @@ function attachChatSocket(httpServer) {
         ws.send(JSON.stringify({ type: 'typing', content: true }));
         const reply = await generateReply(
           past.map((m) => ({ role: m.role, content: m.content })),
-          msg.content
+          msg.content,
+          msg.context || ''
         );
         await Message.create({ userId: ws.userId, role: 'assistant', content: reply });
         ws.send(JSON.stringify({ type: 'typing', content: false }));
