@@ -17,10 +17,13 @@ async function main() {
   server.listen(port, () => console.log(`[api] http://localhost:${port}`));
 }
 
-main().catch((err) => {
-  console.error('[fatal]', err);
-  process.exit(1);
-});
+// Only start the HTTP server when run directly (local dev), not when imported by Vercel
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('[fatal]', err);
+    process.exit(1);
+  });
+}
 
 // Vercel serverless export
 let _app;
