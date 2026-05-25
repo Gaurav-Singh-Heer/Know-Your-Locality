@@ -20,6 +20,7 @@ type Tab = 'explore' | 'planner' | 'matches' | 'chat';
 })
 export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   @ViewChild('chatEnd') chatEnd?: ElementRef;
+  @ViewChild('plannerEnd') plannerEnd?: ElementRef;
 
   readonly auth = inject(AuthService);
   readonly placesService = inject(PlacesService);
@@ -110,21 +111,29 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
 
   // AI Planner — backed by the WebSocket-powered Gemini service
   plannerInput = '';
-  plannerMessages = computed(() => {
-    const arr = this.ai.messages();
-    if (arr.length === 0) {
-      return [{ role: 'assistant' as const, content: `Hi! 👋 I'm your KYK companion. Tell me the kind of day you'd like — a calm morning, a social evening, an active outing — and I'll suggest places and people nearby that fit your vibe.` }];
-    }
-    return arr;
-  });
+  private _shouldScrollPlanner = false;
+
+  plannerMessages = computed(() => this.ai.messages());
   plannerLoading = computed(() => this.ai.typing());
+
+  plannerFeatures = [
+    { icon: '🗺️', label: 'Discover places nearby' },
+    { icon: '👥', label: 'Match with locals' },
+    { icon: '📅', label: 'Plan your full day' },
+    { icon: '✨', label: 'Personalized to your vibe' },
+  ];
 
   sendPlannerMessage() {
     const text = this.plannerInput.trim();
     if (!text || this.plannerLoading()) return;
     this.plannerInput = '';
     this.ai.send(text);
-    this._shouldScroll = true;
+    this._shouldScrollPlanner = true;
+  }
+
+  formatTime(d: Date | undefined): string {
+    if (!d) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   // Matches
@@ -164,6 +173,10 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
       this.chatEnd.nativeElement.scrollIntoView({ behavior: 'smooth' });
       this._shouldScroll = false;
     }
+    if (this._shouldScrollPlanner && this.plannerEnd) {
+      this.plannerEnd.nativeElement.scrollIntoView({ behavior: 'smooth' });
+      this._shouldScrollPlanner = false;
+    }
   }
 
   setTab(tab: Tab) { this.activeTab.set(tab); }
@@ -186,5 +199,5 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
     return Array(5).fill('').map((_, i) => i < Math.floor(rating) ? '★' : '☆');
   }
 
-  plannerSuggestions = ['Plan a relaxing morning', 'Evening outing with friends', 'Active fitness day', 'Cultural exploration'];
+  plannerSuggestions = ['🌅 Plan a relaxing morning', '🎉 Evening outing with friends', '💪 Active fitness day', '🎭 Cultural exploration', '☕ Best cafes nearby', '🌿 Parks & nature walks'];
 }

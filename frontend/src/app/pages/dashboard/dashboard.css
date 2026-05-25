@@ -93,3 +93,79 @@
   border-color: rgba(124,58,237,0.5);
   color: #c4b5fd;
 }
+
+/* AI Planner */
+.suggestion-chip {
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(139,92,246,0.2);
+  background: rgba(139,92,246,0.07);
+  color: rgba(196,181,253,0.75);
+  white-space: nowrap;
+}
+.suggestion-chip:hover:not(:disabled) {
+  background: rgba(139,92,246,0.16);
+  border-color: rgba(139,92,246,0.4);
+  color: #c4b5fd;
+}
+.suggestion-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7c3aed, #0ea5e9);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+.send-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(124,58,237,0.45);
+}
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-dot.live    { background: #4ade80; box-shadow: 0 0 6px #4ade8088; animation: pulse 2s infinite; }
+.status-dot.ready   { background: #22d3ee; box-shadow: 0 0 6px #22d3ee66; }
+.status-dot.connecting { background: #94a3b8; animation: pulse 1.2s infinite; }
+
+.typing-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(167,139,250,0.7);
+  animation: bounce 1.2s ease-in-out infinite;
+}
+
+.planner-input-bg {
+  background: rgba(7,7,17,0.85);
+  backdrop-filter: blur(20px);
+}
+
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); animation-timing-function: cubic-bezier(0.8,0,1,1); }
+  50% { transform: translateY(-35%); animation-timing-function: cubic-bezier(0,0,0.2,1); }
+}

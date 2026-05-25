@@ -17,12 +17,16 @@ export class AiChatService {
   readonly typing = signal(false);
   readonly connected = signal(false);
   readonly error = signal<string | null>(null);
+  /** 'connecting' → trying WS | 'live' → WS open | 'http' → REST fallback (WS unavailable) */
+  readonly wsMode = signal<'connecting' | 'live' | 'http'>('connecting');
 
   async connect(): Promise<void> {
     if (!this._isBrowser) return;
     const token = this.auth.token();
     if (!token) { this.error.set('Not authenticated'); return; }
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+
+    this.wsMode.set('connecting');
 
     // Load history
     try {
@@ -40,9 +44,9 @@ export class AiChatService {
     const url = `${environment.wsBase}/chat?token=${encodeURIComponent(token)}`;
     const ws = new WebSocket(url);
     this.ws = ws;
-    ws.onopen = () => { this.connected.set(true); this.error.set(null); };
-    ws.onclose = () => { this.connected.set(false); };
-    ws.onerror = () => { this.error.set('Chat connection error'); };
+    ws.onopen = () => { this.connected.set(true); this.wsMode.set('live'); this.error.set(null); };
+    ws.onclose = () => { this.connected.set(false); this.wsMode.set('http'); };
+    ws.onerror = () => { this.wsMode.set('http'); }; // silent fallback — REST still works
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data);
@@ -98,5 +102,6 @@ export class AiChatService {
     this.ws?.close();
     this.ws = null;
     this.connected.set(false);
+    this.wsMode.set('connecting');
   }
 }
