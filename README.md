@@ -12,7 +12,7 @@ Two-folder workspace:
 ```bash
 cd backend
 npm install
-cp .env .env   # already created with your Atlas URI; edit if needed
+cp .env.example .env   # already created with your Atlas URI; edit if needed
 ```
 
 Open `backend/.env` and confirm:
