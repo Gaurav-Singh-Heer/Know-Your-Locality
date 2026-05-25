@@ -28,19 +28,15 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
   readonly ai = inject(AiChatService);
   readonly geo = inject(GeolocationService);
   private router = inject(Router);
+
   ngOnInit() {
     this.ai.connect();
     this._loadPlaces();
     this.matchService.fetchMatches();
-    this.chatService.loadConversations();
   }
   ngOnDestroy() { this.ai.disconnect(); }
 
   private async _loadPlaces() {
-    if (this.placesService.hasLocation) {
-      this.placesService.refresh();
-      return;
-    }
     let coords = this.geo.coords();
     if (!coords) coords = await this.geo.request();
     if (coords) this.placesService.fetchNearby(coords.lat, coords.lng, 'Current Location');
@@ -76,51 +72,11 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
     }
   }
 
-  // Location overlay — shown when GPS denied and no cached location
-  showLocationOverlay = computed(() => {
-    const s = this.geo.status();
-    return (s === 'denied' || s === 'unavailable') && !this.placesService.hasLocation;
-  });
-  overlayLocationInput = '';
-  overlaySearching = false;
-  overlayError = '';
-
-  async submitOverlayLocation() {
-    const q = this.overlayLocationInput.trim();
-    if (!q) return;
-    this.overlaySearching = true;
-    this.overlayError = '';
-    const result = await this.placesService.searchLocation(q);
-    this.overlaySearching = false;
-    if (result) {
-      this.placesService.fetchNearby(result.lat, result.lng, result.name);
-    } else {
-      this.overlayError = 'Location not found. Try a city or area name.';
-    }
-  }
-
-  async retryGPS() {
-    const coords = await this.geo.request();
-    if (coords) this.placesService.fetchNearby(coords.lat, coords.lng, 'Current Location');
-  }
-
   activeTab = signal<Tab>('explore');
   sidebarOpen = signal(false);
 
   // Explore
-  searchQuery = signal('');
-  sortMode = signal<'distance' | 'rating' | 'name'>('distance');
-
-  places = computed(() => {
-    let list = this.placesService.filteredPlaces();
-    const q = this.searchQuery().toLowerCase();
-    if (q) list = list.filter(p => p.name.toLowerCase().includes(q));
-    const sort = this.sortMode();
-    if (sort === 'distance') list = [...list].sort((a, b) => a.distance - b.distance);
-    else if (sort === 'rating') list = [...list].sort((a, b) => b.rating - a.rating);
-    else if (sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name));
-    return list;
-  });
+  places = this.placesService.filteredPlaces;
   categories: { id: PlaceCategory | 'all'; label: string; emoji: string }[] = [
     { id: 'all', label: 'All', emoji: '🌐' },
     { id: 'park', label: 'Parks', emoji: '🌳' },
@@ -210,14 +166,9 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
     }
   }
 
-  setTab(tab: Tab) {
-    this.activeTab.set(tab);
-    // Refresh conversations when switching to chat tab
-    if (tab === 'chat') this.chatService.loadConversations();
-  }
+  setTab(tab: Tab) { this.activeTab.set(tab); }
 
   logout() {
-    this.chatService.reset();
     this.auth.logout();
     this.router.navigate(['/']);
   }
@@ -233,24 +184,6 @@ export class DashboardPage implements AfterViewChecked, OnInit, OnDestroy {
 
   getStars(rating: number): string[] {
     return Array(5).fill('').map((_, i) => i < Math.floor(rating) ? '★' : '☆');
-  }
-
-  categoryGradient(category: string): string {
-    const map: Record<string, string> = {
-      park: 'from-emerald-600/30 to-green-600/20',
-      restaurant: 'from-orange-600/30 to-amber-600/20',
-      cafe: 'from-amber-600/30 to-yellow-600/20',
-      club: 'from-purple-600/30 to-pink-600/20',
-      museum: 'from-blue-600/30 to-indigo-600/20',
-      gym: 'from-red-600/30 to-orange-600/20',
-      shopping: 'from-pink-600/30 to-rose-600/20',
-    };
-    return map[category] || 'from-violet-600/30 to-cyan-600/20';
-  }
-
-  travelIcon(): string {
-    const m = this.placesService.selectedTravelMode();
-    return m === 'car' ? '🚗' : m === 'bike' ? '🚲' : '🚶';
   }
 
   plannerSuggestions = ['Plan a relaxing morning', 'Evening outing with friends', 'Active fitness day', 'Cultural exploration'];
